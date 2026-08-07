@@ -1,0 +1,14 @@
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+data/
+outputs/
+*.h5
+*.hdf5
+.ipynb_checkpoints/
+
+# Third-party reference material (paper PDF, NASA example notebook) kept
+# locally for convenience but not ours to redistribute wholesale — see
+# docs/data_download.md for citation + download links instead.
+docs/reference/
