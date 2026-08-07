@@ -1,15 +1,15 @@
-# Datenbeschaffung: N-CMAPSS DS02
+# Data acquisition: N-CMAPSS DS02
 
-Der N-CMAPSS-Datensatz wird als ZIP über den NASA-PCoE-S3-Bucket vertrieben
-und enthält alle Subsets (DS01–DS08) als einzelne HDF5-Dateien. **Es gibt
-keinen offiziellen Einzeldownload nur für DS02** — bestätigt über die
-[mohyunho/N-CMAPSS_DL](https://github.com/mohyunho/N-CMAPSS_DL)
-Referenzimplementierung, die auf dieselbe NASA-Quelle verweist. Das
-Gesamtpaket ist **15,76 GB** groß (per HTTP HEAD geprüft, Stand 2026-08-05).
+The N-CMAPSS dataset is distributed as a ZIP via the NASA PCoE S3 bucket and
+contains all subsets (DS01–DS08) as individual HDF5 files. **There is no
+official standalone download for DS02 only** — confirmed via the
+[mohyunho/N-CMAPSS_DL](https://github.com/mohyunho/N-CMAPSS_DL) reference
+implementation, which points to the same NASA source. The full package is
+**15.76 GB** (checked via HTTP HEAD, as of 2026-08-05).
 
-Inoffizieller Fallback (nur falls der NASA-Link mal nicht erreichbar ist,
-Herkunft/Aktualität nicht garantiert): Google-Drive-Mirror, verlinkt im
-README des genannten GitHub-Repos.
+Unofficial fallback (only if the NASA link is ever unreachable, provenance/
+freshness not guaranteed): Google Drive mirror linked in the README of the
+GitHub repo mentioned above.
 
 ## Download
 
@@ -19,65 +19,64 @@ Invoke-WebRequest `
   -OutFile "data/ncmapss_full.zip"
 ```
 
-Danach **nicht** das komplette Archiv entpacken (die anderen 7 Subsets
-kosten unnötig Speicherplatz) — stattdessen nur die DS02-Datei gezielt
-herausziehen. Im Repo-Root mit `unzip` (in Git Bash verfügbar):
+Afterwards, do **not** extract the whole archive (the other 7 subsets waste
+disk space) — instead pull out only the DS02 file. From the repo root, using
+`unzip` (available in Git Bash):
 
 ```bash
-unzip -l data/ncmapss_full.zip | grep -i DS02   # Pfad im Archiv prüfen
+unzip -l data/ncmapss_full.zip | grep -i DS02   # check the path inside the archive
 unzip -j data/ncmapss_full.zip "*N-CMAPSS_DS02*.h5" -d data/
 mv data/N-CMAPSS_DS02*.h5 data/N-CMAPSS_DS02.h5
 rm data/ncmapss_full.zip
 ```
 
-`-j` verwirft den Ordnerpfad aus dem Archiv (flaches Extrahieren), sodass
-die Datei direkt unter `data/` landet.
+`-j` discards the folder path from the archive (flat extraction), so the
+file ends up directly under `data/`.
 
-## Alternative Quellen
+## Alternative sources
 
-- Offizielles PCoE-Repository (Übersicht/Metadaten):
+- Official PCoE repository (overview/metadata):
   https://www.nasa.gov/intelligent-systems-division/discovery-and-systems-health/pcoe/pcoe-data-set-repository/
 - Mirror: https://data.phmsociety.org/nasa/
 
-## Quelle & Zitation
+## Source & citation
 
-Der Datensatz stammt aus dem NASA Prognostics Center of Excellence (PCoE)
-Data Set Repository. Nutzung ist frei (NASA-Daten als U.S. Government Work,
-faktisch public domain); die einzige Bitte des Repositories ist eine
-Zitierung des Datensatzes bzw. der Autoren in Publikationen, die damit
-arbeiten:
+The dataset comes from the NASA Prognostics Center of Excellence (PCoE)
+Data Set Repository. Usage is unrestricted (NASA data as a U.S. Government
+Work, de facto public domain); the repository's only request is that the
+dataset and its authors be cited in any publication that uses it:
 
 > Arias Chao, M.; Kulkarni, C.; Goebel, K.; Fink, O. (2021). *Aircraft
 > Engine Run-to-Failure Dataset under Real Flight Conditions for
 > Prognostics and Diagnostics.* Data, 6(1), 5.
 > DOI: [10.3390/data6010005](https://doi.org/10.3390/data6010005)
-> (Open Access, CC BY 4.0). Auch als NASA Technical Report gespiegelt:
+> (open access, CC BY 4.0). Also mirrored as a NASA Technical Report:
 > [ntrs.nasa.gov](https://ntrs.nasa.gov/api/citations/20205001125/downloads/Run_to_Failure_Simulation_Under_Real_Flight_Conditions_Dataset.pdf).
 
-Eine lokale Kopie des Papers sowie NASAs eigenes Beispiel-Notebook liegen
-(falls heruntergeladen) unter `docs/reference/` — dieser Ordner ist bewusst
-**gitignored**: es sind Fremdwerke, die hier nur zum eigenen Nachschlagen
-liegen, nicht Teil dieses Repos. Wer sie braucht, lädt sie über die Links
-oben selbst herunter.
+A local copy of the paper and NASA's own example notebook live (if
+downloaded) under `docs/reference/` — this folder is deliberately
+**gitignored**: these are third-party works kept here only for personal
+reference, not part of this repo. Anyone who needs them can download them
+from the links above.
 
-## Struktur der HDF5-Datei
+## HDF5 file structure
 
-Jede N-CMAPSS-Datei enthält (laut oben zitiertem Paper) u.a. folgende
-Gruppen:
+Each N-CMAPSS file contains (per the paper cited above), among others, the
+following groups:
 
-- `W` — Betriebsbedingungen (Scenario-Descriptors: Altitude, Mach, TRA, T2)
-- `X_s` — messbare Sensoren (physikalische Kanäle)
-- `X_v` — virtuelle/modellinterne Sensoren
-- `T` — unbeobachtbare Gesundheitsparameter (nur für Analyse/Debugging, nicht als Feature verwenden)
-- `A` — Auxiliary: `unit`, `cycle`, `Fc` (Flight Class), `hs` (Health State)
-- `Y` — RUL-Label pro Zeile
+- `W` — operating conditions (scenario descriptors: altitude, Mach, TRA, T2)
+- `X_s` — measurable sensors (physical channels)
+- `X_v` — virtual/model-internal sensors
+- `T` — unobservable health parameters (for analysis/debugging only, do not use as a feature)
+- `A` — auxiliary: `unit`, `cycle`, `Fc` (flight class), `hs` (health state)
+- `Y` — RUL label per row
 
-Alle Arrays sind zeilenweise über 1 Hz-Messpunkte hinweg parallel indiziert
-(gleiche Zeilenzahl in `W`, `X_s`, `X_v`, `A`, `Y`).
+All arrays are row-wise aligned across 1 Hz measurement points (same number
+of rows in `W`, `X_s`, `X_v`, `A`, `Y`).
 
-## Kaggle-Upload (für Track B)
+## Kaggle upload (for Track B)
 
-Nach dem lokalen Download `N-CMAPSS_DS02.h5` als privates Kaggle-Dataset
-hochladen (Kaggle → Datasets → New Dataset → Upload), damit das
-Deep-Learning-Notebook (siehe [kaggle_workflow.md](kaggle_workflow.md)) es
-direkt einbinden kann, ohne bei jeder Session neu herunterzuladen.
+After the local download, upload `N-CMAPSS_DS02.h5` as a private Kaggle
+dataset (Kaggle → Datasets → New Dataset → Upload), so the deep-learning
+notebook (see [kaggle_workflow.md](kaggle_workflow.md)) can pull it in
+directly without re-downloading it every session.

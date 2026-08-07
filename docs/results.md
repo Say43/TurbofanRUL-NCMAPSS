@@ -1,191 +1,191 @@
-# Ergebnisse: Track A (NGBoost)
+# Results: Track A (NGBoost)
 
-Siehe `notebooks/02_track_a_baseline.ipynb` für den vollständigen Lauf.
+See `notebooks/02_track_a_baseline.ipynb` for the full run.
 
 ## Setup
 
-- Features: 129 zyklus-aggregierte Statistiken (mean/std/min/max je Sensor-
-  und Betriebsbedingungskanal + Zykluslänge) aus `aggregate_cycles`.
-  **Hinweis:** ein früherer Lauf enthielt versehentlich `a_hs`
-  (Health-State-Flag) als Feature — das ist Data Leakage, da `a_hs` aus dem
-  unbeobachtbaren Degradationszustand abgeleitet ist und kurz vor Ausfall
-  deterministisch kippt. Behoben in `features.feature_columns`; alle Zahlen
-  unten sind der bereinigte, leakage-freie Lauf.
-- Modell: NGBoost (Normal-Verteilung, 300 Estimatoren).
-- CV: Leave-one-unit-out über die 6 Dev-Einheiten (alle Flight Class 3).
-- Test: offizielles DS02-Testset (Units 11/14/15) — spannt alle drei Flight
-  Classes auf (Fc3/Fc1/Fc2), obwohl das Training nur Fc3 gesehen hat.
+- Features: 129 cycle-aggregated statistics (mean/std/min/max per sensor
+  and operating-condition channel + cycle length) from `aggregate_cycles`.
+  **Note:** an earlier run accidentally included `a_hs` (health-state flag)
+  as a feature — that is data leakage, since `a_hs` is derived from the
+  unobservable degradation state and flips deterministically shortly before
+  failure. Fixed in `features.feature_columns`; all numbers below are from
+  the corrected, leakage-free run.
+- Model: NGBoost (Normal distribution, 300 estimators).
+- CV: leave-one-unit-out over the 6 dev units (all flight class 3).
+- Test: official DS02 test set (units 11/14/15) — spans all three flight
+  classes (Fc3/Fc1/Fc2), even though training only saw Fc3.
 
-## CV-Ergebnisse (Dev, Leave-one-unit-out)
+## CV results (dev, leave-one-unit-out)
 
-| Metrik | Mittelwert über Folds |
+| Metric | Mean across folds |
 |---|---|
-| RMSE (Zyklen) | 12.60 |
-| NASA-Score (Summe pro Fold) | 173.76 |
-| Coverage @ 90 %-Intervall | 0.74 |
+| RMSE (cycles) | 12.60 |
+| NASA score (sum per fold) | 173.76 |
+| Coverage @ 90% interval | 0.74 |
 
-Starke Streuung zwischen Folds (RMSE 9.8–16.6, Coverage 0.45–0.88) — bei nur
-6 Einheiten ist jede Leave-one-out-Schätzung stark vom Fehlermodus/Alter der
-jeweils ausgelassenen Einheit geprägt.
+Strong spread across folds (RMSE 9.8–16.6, coverage 0.45–0.88) — with only
+6 units, each leave-one-out estimate is heavily shaped by the failure
+mode/age of the specific held-out unit.
 
-## Test-Ergebnisse (offizielles Testset, über Flight Classes hinweg)
+## Test results (official test set, across flight classes)
 
-| Unit | Flight Class | RMSE | NASA-Score | Coverage @ 90 % |
+| Unit | Flight class | RMSE | NASA score | Coverage @ 90% |
 |---|---|---|---|---|
-| 11 | 3 (gesehen) | 8.72 | 75.37 | 0.97 |
-| 14 | 1 (ungesehen) | 12.31 | 175.40 | 0.83 |
-| 15 | 2 (ungesehen) | 10.21 | 112.36 | 0.91 |
-| **Gesamt** | | **10.67** | **363.12** | **0.90** |
+| 11 | 3 (seen) | 8.72 | 75.37 | 0.97 |
+| 14 | 1 (unseen) | 12.31 | 175.40 | 0.83 |
+| 15 | 2 (unseen) | 10.21 | 112.36 | 0.91 |
+| **Overall** | | **10.67** | **363.12** | **0.90** |
 
-## Beobachtungen (naive NGBoost-Intervalle)
+## Observations (naive NGBoost intervals)
 
-- RMSE auf dem Testset (10.67) liegt in der gleichen Größenordnung wie der
-  CV-Mittelwert (12.60) — die Generalisierung auf ungesehene Flight Classes
-  ist für den Punktschätzer plausibel, wenn auch nicht überragend.
-- **Coverage liegt in der CV klar unter dem nominellen 90 %-Ziel** (0.45–0.88,
-  Ø 0.74). Auf dem Testset liegt die naive Coverage bereits nahe am Ziel
-  (0.90) — ohne die geleakte Feature war die alte Testset-Zahl (0.76)
-  irreführend optimistisch in die falsche Richtung.
+- RMSE on the test set (10.67) is in the same range as the CV mean
+  (12.60) — generalization to unseen flight classes is plausible for the
+  point estimator, if not outstanding.
+- **Coverage in CV is clearly below the nominal 90% target** (0.45–0.88,
+  avg 0.74). On the test set, naive coverage is already close to the target
+  (0.90) — without the leaked feature, the old test-set number (0.76) was
+  misleadingly optimistic in the wrong direction.
 
-## Nachbesserung: nested cross-conformal Kalibrierung
+## Follow-up fix: nested cross-conformal calibration
 
-`turbofan_rul.calibration` + `track_a.cross_conformal_loo` ersetzen NGBoosts
-eigene Skalenschätzung durch einen Faktor `q_hat`, der aus out-of-fold-
-Residuen bestimmt wird (nested Leave-one-unit-out, da nur 6 Einheiten
-verfügbar sind). Ergebnis:
+`turbofan_rul.calibration` + `track_a.cross_conformal_loo` replace
+NGBoost's own scale estimate with a factor `q_hat` derived from out-of-fold
+residuals (nested leave-one-unit-out, since only 6 units are available).
+Result:
 
-| | Coverage @ 90%-Ziel, naiv | Coverage @ 90%-Ziel, conformal |
+| | Coverage @ 90% target, naive | Coverage @ 90% target, conformal |
 |---|---|---|
-| CV (Dev, Ø über Folds) | 0.74 | **0.95** |
-| Offizielles Testset (gesamt) | 0.90 | **0.99** |
+| CV (dev, avg across folds) | 0.74 | **0.95** |
+| Official test set (overall) | 0.90 | **0.99** |
 
-RMSE/NASA-Score ändern sich nicht (Kalibrierung betrifft nur die
-Intervallbreite, nicht den Punktschätzer).
+RMSE/NASA score don't change (calibration only affects interval width, not
+the point estimate).
 
-**Einordnung:** Coverage von 0.95 (CV) und 0.99 (Test) statt exakt 0.90 kommt
-aus der finite-sample-Korrektur der Conformal-Quantile (rundet bei kleinen
-Kalibrierungsmengen konservativ auf) plus dem Distribution Shift zwischen
-Kalibrierung (nur Flight Class 3) und Testset (Fc1/Fc2/Fc3) — die
-Conformal-Garantie setzt Austauschbarkeit voraus, die hier verletzt ist.
-Dass die Intervalle trotzdem eher zu breit als zu eng sind, ist das sicherere
-Versagen, aber **keine bewiesene 90%-Garantie unter Shift**.
+**Interpretation:** coverage of 0.95 (CV) and 0.99 (test) instead of
+exactly 0.90 comes from the finite-sample correction of the conformal
+quantile (rounds up conservatively for small calibration sets) plus the
+distribution shift between calibration (flight class 3 only) and the test
+set (Fc1/Fc2/Fc3) — the conformal guarantee assumes exchangeability, which
+is violated here. The fact that the intervals end up too wide rather than
+too narrow is the safer failure mode, but it is **not a proven 90%
+guarantee under shift**.
 
-**Hinweis zur Reproduzierbarkeit:** `fit_ngboost`/`cross_conformal_loo` fixen
-aktuell keinen `random_state`. Wiederholte Läufe schwanken deshalb leicht
-(gesehen: RMSE 10.67–10.71, NASA-Score 363–365 auf demselben Testset) — die
-Größenordnung und alle qualitativen Aussagen oben sind über mehrere Läufe
-stabil, einzelne Nachkommastellen nicht.
+**Reproducibility note:** `fit_ngboost`/`cross_conformal_loo` currently
+don't fix a `random_state`. Repeated runs therefore fluctuate slightly
+(observed: RMSE 10.67–10.71, NASA score 363–365 on the same test set) — the
+order of magnitude and all qualitative statements above are stable across
+runs, individual decimal places are not.
 
-## Produktions-Fix: negative RUL-Werte geclippt
+## Production fix: negative RUL values clipped
 
-Reale Kalibrierungsintervalle können nahe dem Lebensende unterhalb von 0
-rutschen — beobachtet z.B. bei Testset-Unit 15, Zyklus 67 (wahre RUL 0):
-das Rohmodell lieferte eine untere Intervallgrenze von **−11,7 Zyklen**,
-physikalisch unmöglich und für eine Instandhaltungsanzeige nicht
-präsentierbar. `evaluate.clip_rul` klemmt Punktvorhersage und beide
-Intervallgrenzen jetzt bei 0 fest; angewendet in `track_a.predict_with_interval`
-und `track_a.conformal_predict` (Track B analog im Kaggle-Notebook). Ändert
-RMSE/NASA-Score nicht (der Punktschätzer war nie negativ) und auch nicht
-die Coverage (ein y≥0 lag ohnehin schon oberhalb jeder negativen Grenze) —
-reiner Darstellungs-/Produktions-Fix, keine Ergebniskorrektur.
+Real calibration intervals can dip below 0 near end-of-life — observed
+e.g. for test-set unit 15, cycle 67 (true RUL 0): the raw model produced a
+lower interval bound of **−11.7 cycles**, physically impossible and not
+presentable for a maintenance display. `evaluate.clip_rul` now clamps the
+point prediction and both interval bounds at 0; applied in
+`track_a.predict_with_interval` and `track_a.conformal_predict` (Track B
+analogously in the Kaggle notebook). Does not change RMSE/NASA score (the
+point estimate was never negative) nor coverage (a y≥0 was already above
+any negative bound) — a pure presentation/production fix, not a result
+correction.
 
-## Track B (Deep Ensemble, Kaggle T4)
+## Track B (deep ensemble, Kaggle T4)
 
-Siehe `kaggle_kernel/track_b_training.ipynb` für den vollständigen Lauf,
-`docs/kaggle_workflow.md` für den Infra-Ablauf (inkl. der einigen echten
-Stolpersteine unterwegs — fehlende Kernelspec-Metadata, verschachtelter
-`/kaggle/input`-Pfad, veraltete Dataset-Version, fehlende Feature-
-Standardisierung → NaN-Loss, P100/T4-Kompatibilität).
+See `kaggle_kernel/track_b_training.ipynb` for the full run,
+`docs/kaggle_workflow.md` for the infrastructure workflow (including the
+various real gotchas along the way — missing kernelspec metadata, nested
+`/kaggle/input` path, stale dataset version, missing feature
+standardization → NaN loss, P100/T4 compatibility).
 
 ### Setup
 
-- Modell: 1D-CNN (2 Conv-Layer, hidden 32/64) + Gaussian-NLL-Kopf, 5er
-  Deep Ensemble (Kombination via Mixture-of-Gaussians Moment-Matching,
+- Model: 1D CNN (2 conv layers, hidden 32/64) + Gaussian NLL head, 5-member
+  deep ensemble (combined via mixture-of-Gaussians moment matching,
   Lakshminarayanan et al. 2017).
-- Daten: rohe 1Hz-Sensorik, subsampled auf 0,1 Hz, Sliding-Window (Länge 50,
-  Stride 1) über die volle Unit-Historie hinweg (Zyklen aneinandergereiht,
-  siehe `sequences.make_windows`). Features **standardisiert** (Mittelwert/
-  Std aus dem Trainings-Split, siehe `sequences.standardize_features`).
-- Split: Unit 2 komplett als Kalibrierungs-Einheit zurückgehalten (Split-
-  Conformal, kein Nested-CV nötig bei dieser Datenmenge), Units 5/10/16/18/20
-  fürs Training. Test: dasselbe offizielle DS02-Testset wie Track A
-  (Units 11/14/15, Fc3/Fc1/Fc2).
-- Training: 15 Epochen/Mitglied, Batch 256, Adam (lr 1e-3), Gradient-Clipping
-  (max\_norm 5) — **~16 Minuten** für alle 5 Mitglieder auf einer Tesla T4
-  (Kaggle `machine_shape: NvidiaTeslaT4` explizit erzwungen, siehe
-  `docs/kaggle_workflow.md`). Loss fiel sauber von ~8–9 auf ~1.4.
-- Punktvorhersage und Intervallgrenzen sind mit `evaluate.clip_rul` bei 0
-  gekappt (siehe Abschnitt "Produktions-Fix" oben — dieselbe Begründung
-  gilt hier: negative "verbleibende Zyklen" sind unmöglich).
+- Data: raw 1 Hz sensor readings, subsampled to 0.1 Hz, sliding window
+  (length 50, stride 1) over the full unit history (cycles concatenated,
+  see `sequences.make_windows`). Features **standardized** (mean/std from
+  the training split, see `sequences.standardize_features`).
+- Split: unit 2 held out entirely as the calibration unit (split conformal,
+  no nested CV needed at this data volume), units 5/10/16/18/20 for
+  training. Test: the same official DS02 test set as Track A (units
+  11/14/15, Fc3/Fc1/Fc2).
+- Training: 15 epochs/member, batch 256, Adam (lr 1e-3), gradient clipping
+  (max_norm 5) — **~16 minutes** for all 5 members on a Tesla T4 (Kaggle
+  `machine_shape: NvidiaTeslaT4` explicitly forced, see
+  `docs/kaggle_workflow.md`). Loss dropped cleanly from ~8–9 to ~1.4.
+- Point prediction and interval bounds are clamped at 0 via
+  `evaluate.clip_rul` (see "Production fix" section above — the same
+  reasoning applies here: negative "cycles remaining" is impossible).
 
-### Ergebnisse (offizielles Testset)
+### Results (official test set)
 
-| Unit | Flight Class | n Fenster | RMSE | NASA-Score (Summe) | Coverage naiv | Coverage conformal |
+| Unit | Flight class | n windows | RMSE | NASA score (sum) | Coverage naive | Coverage conformal |
 |---|---|---|---|---|---|---|
-| 11 | 3 (gesehen) | 66.301 | 8.12 | 77.913 | 0.46 | 0.90 |
-| 14 | 1 (ungesehen) | 15.629 | 5.48 | 6.975 | 0.88 | 1.00 |
-| 15 | 2 (ungesehen) | 43.298 | 3.25 | 11.143 | 0.95 | 0.99 |
-| **Gesamt** | | **125.228** | **6.50** | **96.031** | **0.68** | **0.94** |
+| 11 | 3 (seen) | 66,301 | 8.12 | 77,913 | 0.46 | 0.90 |
+| 14 | 1 (unseen) | 15,629 | 5.48 | 6,975 | 0.88 | 1.00 |
+| 15 | 2 (unseen) | 43,298 | 3.25 | 11,143 | 0.95 | 0.99 |
+| **Overall** | | **125,228** | **6.50** | **96,031** | **0.68** | **0.94** |
 
-`q_hat` (Split-Conformal, aus Kalibrierungs-Unit 2): 3.25.
+`q_hat` (split conformal, from calibration unit 2): 3.25.
 
-**Achtung Skaleneffekt beim NASA-Score:** die Summe ist über 125.228 Fenster
-gebildet, nicht über 202 Zyklen wie bei Track A — die rohe Summe ist daher
-*nicht* direkt mit Track As 363 vergleichbar. Fair vergleichbar ist der
-Mittelwert pro Vorhersage: 96.031 / 125.228 ≈ **0,77** (Track B) vs.
-363 / 202 ≈ **1,80** (Track A).
+**Note on the scale effect in the NASA score:** the sum is computed over
+125,228 windows, not over 202 cycles as in Track A — the raw sum is
+therefore *not* directly comparable to Track A's 363. The fair comparison
+is the mean per prediction: 96,031 / 125,228 ≈ **0.77** (Track B) vs.
+363 / 202 ≈ **1.80** (Track A).
 
-**Hinweis zur Reproduzierbarkeit:** wie bei Track A ist auch das
-CNN-Training nicht geseedet — ein vorheriger Lauf (vor dem Clipping-Fix,
-sonst identischer Code) ergab RMSE 7.21 statt 6.50 auf demselben Testset.
-Größenordnung und qualitative Aussagen sind stabil, einzelne Zahlen
-schwanken von Lauf zu Lauf um grob ±10-15%.
+**Reproducibility note:** as with Track A, the CNN training is not seeded
+either — an earlier run (before the clipping fix, otherwise identical code)
+produced RMSE 7.21 instead of 6.50 on the same test set. The order of
+magnitude and qualitative statements are stable, individual numbers
+fluctuate run to run by roughly ±10–15%.
 
-### Vergleich Track A vs. Track B
+### Comparison: Track A vs. Track B
 
-| Metrik | Track A (NGBoost, Zyklus-Level) | Track B (Deep Ensemble, Fenster-Level) |
+| Metric | Track A (NGBoost, cycle level) | Track B (deep ensemble, window level) |
 |---|---|---|
-| RMSE (Test, gesamt) | 10.67 | 6.50 |
-| NASA-Score Ø pro Vorhersage | 1.80 | 0.77 |
-| Coverage @ 90 %, naiv | 0.90 | 0.68 |
-| Coverage @ 90 %, conformal | 0.99 | 0.94 |
-| Trainingszeit | Sekunden (CPU) | ~16 Min (T4-GPU) |
+| RMSE (test, overall) | 10.67 | 6.50 |
+| NASA score, avg per prediction | 1.80 | 0.77 |
+| Coverage @ 90%, naive | 0.90 | 0.68 |
+| Coverage @ 90%, conformal | 0.99 | 0.94 |
+| Training time | seconds (CPU) | ~16 min (T4 GPU) |
 
-**Wichtiger Vergleichbarkeits-Vorbehalt:** Track A sagt einmal pro Zyklus
-vorher, Track B einmal pro (überlappendem) Zeitfenster — bei Stride 1
-überlappen benachbarte Fenster in 49 von 50 Zeitschritten, sind also stark
-autokorreliert. Die 125.228 "Fenster" sind damit statistisch **keine**
-125.228 unabhängigen Beobachtungen; RMSE/Coverage bleiben aussagekräftige
-deskriptive Kennzahlen für das Modell auf diesen Daten, aber ein direkter
-Signifikanztest zwischen den Tracks wäre auf dieser Basis nicht valide.
+**Important comparability caveat:** Track A predicts once per cycle, Track
+B once per (overlapping) time window — at stride 1, neighboring windows
+overlap in 49 of 50 time steps, so they are strongly autocorrelated. The
+125,228 "windows" are therefore statistically **not** 125,228 independent
+observations; RMSE/coverage remain meaningful descriptive metrics for the
+model on this data, but a direct significance test between the tracks
+would not be valid on this basis.
 
-**Beobachtungen:**
-- Track B erreicht einen niedrigeren RMSE und einen besseren
-  Ø-NASA-Score als Track A — plausibel, da es auf viel mehr, feiner
-  aufgelösten Trainingsdaten (Rohsignal statt Zyklus-Aggregate) lernt.
-- Umgekehrtes Coverage-Bild: Track As naive Intervalle sind in der CV klar
-  zu eng, im Testset zufällig nah am Ziel (0.90); Track Bs naive Intervalle
-  sind durchgängig zu eng (0.68) — nach Konformal-Kalibrierung liegen beide
-  nah am oder leicht über dem 90 %-Ziel.
-- Innerhalb Track B ist die Coverage für Unit 11 (gesehene Flight Class 3)
-  naiv am schlechtesten (0.46), während die ungesehenen Flight Classes
-  1/2 naiv besser abschneiden (0.88/0.95) — kontraintuitiv auf den ersten
-  Blick, aber die Kalibrierungs-Einheit (Unit 2) ist ebenfalls Fc3, sodass
-  Stichprobenvarianz zwischen einzelnen Einheiten hier mehr Einfluss haben
-  könnte als der Flight-Class-Unterschied selbst. Kein Widerspruch zur
-  Kernaussage, aber ein Hinweis, dass "gesehene vs. ungesehene Flight
-  Class" allein nicht die ganze Geschichte ist.
+**Observations:**
+- Track B achieves a lower RMSE and a better average NASA score than
+  Track A — plausible, since it learns from much more, finer-grained
+  training data (raw signal instead of cycle aggregates).
+- Reversed coverage picture: Track A's naive intervals are clearly too
+  narrow in CV, coincidentally close to the target (0.90) on the test set;
+  Track B's naive intervals are consistently too narrow (0.68) — after
+  conformal calibration, both end up near or slightly above the 90% target.
+- Within Track B, coverage for unit 11 (seen flight class 3) is naively
+  the worst (0.46), while the unseen flight classes 1/2 perform naively
+  better (0.88/0.95) — counterintuitive at first glance, but the
+  calibration unit (unit 2) is also Fc3, so sample variance between
+  individual units may matter more here than the flight-class difference
+  itself. Not a contradiction of the core finding, but a hint that "seen
+  vs. unseen flight class" alone isn't the whole story.
 
-## Offen
+## Open items
 
-- 129 Features bei ~446 Trainings-Zyklen bleibt ein ungünstiges Verhältnis
-  für Bäume — Feature-Selektion oder eine einfachere lineare Baseline zum
-  Vergleich sind naheliegende nächste Schritte für Track A.
-- Track B nutzt bislang nur eine einzelne Kalibrierungs-Einheit für
-  Split-Conformal; ein Vergleich mit einer Nested-Variante (wie bei Track A)
-  wäre ein sauberer nächster Schritt, ist aber wegen der Trainingskosten
-  pro Fold deutlich teurer.
-- Kein direkter statistischer Signifikanztest zwischen den Tracks (siehe
-  Autokorrelations-Vorbehalt oben) — für eine Bewerbungsunterlage reicht die
-  deskriptive Gegenüberstellung, für eine wissenschaftliche Arbeit wäre das
-  nachzuholen.
+- 129 features with ~446 training cycles remains an unfavorable ratio for
+  trees — feature selection or a simpler linear baseline for comparison are
+  obvious next steps for Track A.
+- Track B currently uses only a single calibration unit for split
+  conformal; comparing against a nested variant (as in Track A) would be a
+  clean next step, but is considerably more expensive due to per-fold
+  training cost.
+- No direct statistical significance test between the tracks (see the
+  autocorrelation caveat above) — for a job-application portfolio, the
+  descriptive comparison is sufficient; for an academic paper, this would
+  need to be addressed.

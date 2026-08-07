@@ -1,34 +1,33 @@
 # TurbofanRUL-NCMAPSS
 
-Predictive-Maintenance: Restlebensdauer-Prognose (RUL) für
-Turbofan-Triebwerke auf Basis des NASA N-CMAPSS-Datensatzes (DS02,
-realistische Flugprofile statt synthetischer Zyklen wie im klassischen
-C-MAPSS).
+Predictive maintenance: Remaining Useful Life (RUL) prediction for turbofan
+engines based on NASA's N-CMAPSS dataset (DS02, realistic flight profiles
+instead of the synthetic cycles used in classic C-MAPSS).
 
-## Ziel
+## Goal
 
-RUL-Prognose auf N-CMAPSS DS02 mit zwei parallel entwickelten und
-gegeneinander evaluierten Modellierungsansätzen, inkl. kalibrierter
-Unsicherheitsquantifizierung (UQ) statt reiner Punktschätzung.
+RUL prediction on N-CMAPSS DS02 with two modeling approaches developed and
+evaluated in parallel, including calibrated uncertainty quantification (UQ)
+instead of plain point estimates.
 
-## Methodik
+## Methodology
 
-1. **Daten:** N-CMAPSS DS02 (HDF5, 1 Hz-Sensordaten über volle Flüge,
-   run-to-failure, mehrere Einheiten/Fehlermodi, RUL-Label bereits enthalten).
-2. **Preprocessing:** Aggregation der 1 Hz-Rohdaten auf Zyklus-Level-Features
-   (Flugphasen-Statistiken) + optional Sliding-Window-Sequenzen für die
-   Deep-Learning-Spur. Split **nach Unit**, nicht nach Zeit (kein Leakage).
-3. **Track A — klassisches ML + UQ:** Gradient Boosting mit Quantilverlust
-   bzw. NGBoost für Prediction Intervals.
-4. **Track B — Deep Learning + UQ:** CNN/LSTM-Baseline mit Deep Ensembles
-   oder MC-Dropout für Unsicherheit. Training läuft auf Kaggle (T4-GPU),
-   nicht lokal — siehe [docs/kaggle_workflow.md](docs/kaggle_workflow.md).
-5. **Evaluation:** RMSE, NASA-PHM-Score (asymmetrische Straffunktion,
-   verspätete Vorhersagen härter bestraft), Coverage/Kalibrierung der
-   Prediction Intervals, Cross-Validation über Flight Classes/Betriebs-
-   bedingungen.
-6. **Vergleich & Report:** Gegenüberstellung beider Tracks unter
-   [docs/results.md](docs/results.md) — Track A steht, Track B folgt.
+1. **Data:** N-CMAPSS DS02 (HDF5, 1 Hz sensor data over full flights,
+   run-to-failure, multiple units/failure modes, RUL label already included).
+2. **Preprocessing:** aggregation of the 1 Hz raw data into cycle-level
+   features (flight-phase statistics) plus optional sliding-window sequences
+   for the deep-learning track. Split **by unit**, not by time (no leakage).
+3. **Track A — classical ML + UQ:** gradient boosting with quantile loss /
+   NGBoost for prediction intervals.
+4. **Track B — deep learning + UQ:** CNN/LSTM baseline with deep ensembles
+   or MC dropout for uncertainty. Training runs on Kaggle (T4 GPU), not
+   locally — see [docs/kaggle_workflow.md](docs/kaggle_workflow.md).
+5. **Evaluation:** RMSE, NASA PHM score (asymmetric penalty function,
+   punishing late predictions harder), coverage/calibration of the
+   prediction intervals, cross-validation across flight classes/operating
+   conditions.
+6. **Comparison & report:** side-by-side comparison of both tracks under
+   [docs/results.md](docs/results.md) — Track A and Track B are both done.
 
 ## Setup
 
@@ -36,35 +35,36 @@ Unsicherheitsquantifizierung (UQ) statt reiner Punktschätzung.
 uv sync
 ```
 
-Für Track B zusätzlich (nur lokal nötig, falls nicht auf Kaggle trainiert wird):
+For Track B additionally (only needed locally if not training on Kaggle):
 
 ```powershell
 uv sync --extra deep
 ```
 
-## Daten
+## Data
 
-DS02 wird nicht mitversioniert (`data/` ist gitignored). Download-Anleitung:
-[docs/data_download.md](docs/data_download.md).
+DS02 is not version-controlled (`data/` is gitignored). Download
+instructions: [docs/data_download.md](docs/data_download.md).
 
-## Projektstruktur
+## Project structure
 
 ```
-src/turbofan_rul/   Python-Package (Preprocessing, Modelle, Evaluation)
-notebooks/          EDA und Ergebnis-Notebooks
-docs/                Download-Anleitung, Kaggle-Workflow, Ergebnisreport
-data/                Rohdaten (gitignored)
-outputs/             Trainierte Modelle, Metriken (gitignored)
-tests/               pytest-Tests
+src/turbofan_rul/   Python package (preprocessing, models, evaluation)
+notebooks/          EDA and results notebooks
+docs/                Download guide, Kaggle workflow, results report
+data/                Raw data (gitignored)
+outputs/             Trained models, metrics (gitignored)
+tests/               pytest tests
 ```
 
-## Lizenz & Datenquelle
+## License & data source
 
-Code und Dokumentation in diesem Repo stehen unter der [MIT-Lizenz](LICENSE).
+Code and documentation in this repo are licensed under the [MIT
+License](LICENSE).
 
-Der verwendete Datensatz (NASA N-CMAPSS DS02) ist nicht Teil dieses Repos
-(siehe [docs/data_download.md](docs/data_download.md) für Download und
-Zitation) und stammt aus dem NASA Prognostics Center of Excellence Data Set
+The dataset used (NASA N-CMAPSS DS02) is not part of this repo (see
+[docs/data_download.md](docs/data_download.md) for download and citation)
+and comes from the NASA Prognostics Center of Excellence Data Set
 Repository:
 
 > Arias Chao, M.; Kulkarni, C.; Goebel, K.; Fink, O. (2021). *Aircraft

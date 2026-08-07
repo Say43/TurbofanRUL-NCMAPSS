@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name = "turbofan-rul"
 version = "0.1.0"
-description = "RUL-Prognose fuer Turbofan-Triebwerke auf NASA N-CMAPSS (DS02): klassisches ML+UQ vs. Deep Learning+UQ."
+description = "RUL prediction for turbofan engines on NASA N-CMAPSS (DS02): classical ML+UQ vs. deep learning+UQ."
 readme = "README.md"
 license = "MIT"
 license-files = ["LICENSE"]

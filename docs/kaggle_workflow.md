@@ -1,88 +1,88 @@
-# Kaggle-Workflow für Track B (Deep Learning)
+# Kaggle workflow for Track B (deep learning)
 
-Kaggle-CLI ist lokal konfiguriert (`~/.kaggle/kaggle.json`) — alles unten
-lässt sich per `kaggle`-Befehl von der Kommandozeile treiben, kein manuelles
-Klicken im Kaggle-UI nötig.
+The Kaggle CLI is configured locally (`~/.kaggle/kaggle.json`) — everything
+below can be driven from the command line with the `kaggle` command, no
+manual clicking in the Kaggle UI needed.
 
-## 1. Datasets hochladen (einmalig, danach nur bei Änderungen)
+## 1. Upload datasets (one-time, then only on changes)
 
-**DS02-Rohdaten** (2,45 GB, siehe [data_download.md](data_download.md) für
-die Herkunft):
+**DS02 raw data** (2.45 GB, see [data_download.md](data_download.md) for
+provenance):
 
 ```bash
-kaggle datasets init -p data/       # erzeugt data/dataset-metadata.json einmalig
-# id/title darin anpassen, dann:
-kaggle datasets create -p "<absoluter Windows-Pfad>\data" -t
+kaggle datasets init -p data/       # creates data/dataset-metadata.json once
+# adjust id/title in it, then:
+kaggle datasets create -p "<absolute Windows path>\data" -t
 ```
 
-**Wichtig (Windows):** `-p` mit einem *absoluten* Windows-Pfad
-(`C:\...\data`) übergeben, nicht mit einem relativen Pfad mit
-Forward-Slash (`data/`) — Letzteres löst einen Pfad-Mixing-Bug in der
-Kaggle-CLI aus (`No such file or directory: '...\\.kaggle/uploads\\data/...json'`).
+**Important (Windows):** pass `-p` an *absolute* Windows path
+(`C:\...\data`), not a relative path with a forward slash (`data/`) — the
+latter triggers a path-mixing bug in the Kaggle CLI
+(`No such file or directory: '...\\.kaggle/uploads\\data/...json'`).
 
-**Code-Utility-Dataset** (`src/turbofan_rul/*.py`, klein, sekundenschnell):
+**Code utility dataset** (`src/turbofan_rul/*.py`, small, seconds to upload):
 
 ```bash
 kaggle datasets init -p src/
-kaggle datasets create -p "<absoluter Windows-Pfad>\src" -r zip
+kaggle datasets create -p "<absolute Windows path>\src" -r zip
 ```
 
-`-r zip` ist nötig, da `src/` nur ein Unterverzeichnis (`turbofan_rul/`)
-enthält — im Default-Modus (`skip`) würde die Kaggle-CLI Verzeichnisse
-ignorieren und nichts hochladen. **Kaggle flacht die Zip-Struktur beim
-Extrahieren ab:** die `.py`-Dateien landen direkt unter
-`/kaggle/input/turbofan-rul-src/`, nicht unter `.../turbofan_rul/`. Da
-unser Code `from turbofan_rul.xxx import yyy` (absolute Package-Imports)
-verwendet, muss das Kernel-Notebook das im ersten Setup-Cell selbst
-geradebiegen (Dateien nach `/kaggle/working/pkg/turbofan_rul/` kopieren,
-dann `sys.path.insert(0, "/kaggle/working/pkg")` — siehe
+`-r zip` is needed because `src/` only contains a subdirectory
+(`turbofan_rul/`) — in the default mode (`skip`) the Kaggle CLI would ignore
+directories and upload nothing. **Kaggle flattens the zip structure on
+extraction:** the `.py` files end up directly under
+`/kaggle/input/turbofan-rul-src/`, not under `.../turbofan_rul/`. Since our
+code uses `from turbofan_rul.xxx import yyy` (absolute package imports), the
+kernel notebook has to fix that up itself in the first setup cell (copy the
+files to `/kaggle/working/pkg/turbofan_rul/`, then
+`sys.path.insert(0, "/kaggle/working/pkg")` — see
 `kaggle_kernel/track_b_training.ipynb`).
 
-## 2. Kernel (Notebook) erstellen und pushen
+## 2. Create and push the kernel (notebook)
 
 ```bash
 kaggle kernels init -p kaggle_kernel/
 ```
 
-`kaggle_kernel/kernel-metadata.json` referenziert beide Datasets über
-`dataset_sources`, setzt `enable_gpu: true`, `enable_internet: false`
-(alle gebrauchten Pakete — numpy/pandas/torch/scipy/h5py — sind im
-Kaggle-Standardimage vorinstalliert).
+`kaggle_kernel/kernel-metadata.json` references both datasets via
+`dataset_sources`, sets `enable_gpu: true`, `enable_internet: false` (all
+required packages — numpy/pandas/torch/scipy/h5py — are pre-installed in
+Kaggle's standard image).
 
-**Stolperstein:** ein per `nbformat` programmatisch gebautes Notebook hat
-standardmäßig **keine `kernelspec`-Metadata**. Lokal führt `jupyter
-nbconvert --execute` das trotzdem aus, Kaggles Papermill-basierter Executor
-bricht aber mit `ValueError: No kernel name found in notebook` ab. Fix: vor
-dem Push sicherstellen, dass `nb.metadata.kernelspec` gesetzt ist (`python3`,
-`display_name: Python 3`).
+**Gotcha:** a notebook built programmatically via `nbformat` has **no
+`kernelspec` metadata** by default. Locally, `jupyter nbconvert --execute`
+runs it anyway, but Kaggle's papermill-based executor aborts with
+`ValueError: No kernel name found in notebook`. Fix: make sure
+`nb.metadata.kernelspec` is set (`python3`, `display_name: Python 3`)
+before pushing.
 
 ```bash
 kaggle kernels push -p kaggle_kernel/
 ```
 
-Titel und `id`-Slug im `kernel-metadata.json` sollten zueinander passen
-(sonst legt Kaggle einen abweichenden Slug an und man muss den beim Status-
-Check erraten).
+The title and the `id` slug in `kernel-metadata.json` should match each
+other (otherwise Kaggle creates a different slug and you have to guess it
+when checking status).
 
-## 3. Lauf überwachen
+## 3. Monitor the run
 
 ```bash
 kaggle kernels status says43/turbofan-rul-track-b
 ```
 
-Bei Fehlern (`KernelWorkerStatus.ERROR`) Log ziehen:
+On failure (`KernelWorkerStatus.ERROR`), pull the log:
 
 ```bash
-kaggle kernels output says43/turbofan-rul-track-b -p <ziel-ordner>
+kaggle kernels output says43/turbofan-rul-track-b -p <target-folder>
 ```
 
-Das Log liegt als JSON-Lines-Datei vor (`stream_name`/`data`-Paare) — mit
-`grep -i "error\|traceback"` durchsuchen.
+The log is a JSON-Lines file (`stream_name`/`data` pairs) — search it with
+`grep -i "error\|traceback"`.
 
-## 4. Ergebnisse zurückholen
+## 4. Retrieve results
 
-Nach erfolgreichem Lauf liegen `track_b_summary.csv`,
-`track_b_test_results.csv` und ein PNG mit den Degradationskurven unter
-`/kaggle/working/` (im Notebook selbst geschrieben). Herunterladen mit
-demselben `kaggle kernels output`-Befehl wie oben, dann die CSVs lokal
-unter `outputs/` ablegen und in `docs/results.md` mit Track A vergleichen.
+After a successful run, `track_b_summary.csv`, `track_b_test_results.csv`
+and a PNG with the degradation curves are under `/kaggle/working/` (written
+by the notebook itself). Download with the same `kaggle kernels output`
+command as above, then place the CSVs locally under `outputs/` and compare
+against Track A in `docs/results.md`.
