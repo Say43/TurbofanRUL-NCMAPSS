@@ -1,6 +1,6 @@
 # TurbofanRUL-NCMAPSS
 
-Predictive-Maintenance-Portfolioprojekt: Restlebensdauer-Prognose (RUL) für
+Predictive-Maintenance: Restlebensdauer-Prognose (RUL) für
 Turbofan-Triebwerke auf Basis des NASA N-CMAPSS-Datensatzes (DS02,
 realistische Flugprofile statt synthetischer Zyklen wie im klassischen
 C-MAPSS).
